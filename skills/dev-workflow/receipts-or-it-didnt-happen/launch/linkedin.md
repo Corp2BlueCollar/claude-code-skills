@@ -13,7 +13,10 @@ So I built a Claude Code skill called receipts-or-it-didnt-happen that makes the
   OUTPUT:  paste the actual output
   VERDICT: yes / no
 
-No receipts, no claim. There's a Stop-hook script in the repo that enforces it at the harness level. If the agent tries to wrap up a turn with a claim word and no Evidence Template, the harness blocks the stop and re-prompts.
+No receipts, no claim. There's a Stop-hook script in the repo that enforces this at the harness level. It does two things:
+
+1. Blocks any "passes / fixed / done" claim that isn't paired with an Evidence Template.
+2. For verification commands on a safe-list (pytest, npm test, cargo test, eslint, ruff, mypy, git status, etc.), it RE-RUNS the command in a fresh subshell and compares the real exit code to the claimed VERDICT. If the agent fabricated a passing receipt, the real run fails, the hook blocks the stop, and the agent has to retract the claim.
 
 This is the difference between AI demos and AI operations. Demos optimize for the moment of impressive-looking output. Operations need the agent to be honest when something is broken.
 

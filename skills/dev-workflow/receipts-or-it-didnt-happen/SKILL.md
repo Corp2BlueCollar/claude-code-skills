@@ -193,25 +193,47 @@ Add to `.claude/settings.json`:
 }
 ```
 
-A reference implementation lives at `scripts/check-receipts.sh` in this skill folder. It scans the most recent assistant message transcript for claim words (*passes, complete, fixed, working, done, ready, shipped*) and confirms an Evidence Template (CLAIM/COMMAND/OUTPUT/VERDICT) appears in the same message. If a claim word appears without a matching receipt, the hook exits non-zero and the harness re-prompts the agent to verify before stopping.
+A reference implementation lives at `scripts/check-receipts.sh` in this skill folder. It runs **two-tier verification**:
 
-**What it catches:**
-- "All tests pass" with no `pytest` / `npm test` / `cargo test` output above
-- "Bug fixed" with no diff and no reproduction run
-- "Build complete" with no exit-code line
+### Tier 1 — Form check
+The hook scans the most recent assistant message transcript for claim words (*passes, complete, fixed, working, done, ready, shipped, succeeded, success, green*) and confirms an Evidence Template (CLAIM / COMMAND / OUTPUT / VERDICT) appears in the same message. Claim word without all four markers → block.
 
-**What it lets through:**
-- Claims accompanied by an Evidence Template block
-- Pure status updates without success language
-- Questions, plans, exploratory turns
+### Tier 2 — Truth check (re-run + verdict comparison)
+This is the load-bearing one. After form check passes, the hook:
 
-Customize the claim-word list and receipt regex inside the script for your stack.
+1. Extracts the COMMAND line from the receipt.
+2. Rejects it as "non-rerunnable" if it contains shell metacharacters (`;`, `&`, `|`, `<`, `>`, `` ` ``, `$`) — too dangerous to re-execute on agent-authored text.
+3. Checks the first word against a **safe-list** of read-only / idempotent commands: `pytest`, `ruff`, `mypy`, `flake8`, `tsc`, `eslint`, `prettier`, `isort`, `black`, `cargo`, `go`, `mvn`, `gradle`, `make`, `npm test`, `npm run`, `pnpm test`, `pnpm run`, `yarn test`, `bash test*.sh`, `git status|diff|log|show|branch|ls-files|rev-parse`, `ls`, `cat`, `head`, `tail`, `wc`, `grep`, `find`, `file`, `stat`.
+4. If the COMMAND matches the safe-list, the hook **re-executes it in a fresh subshell with a 60-second timeout** (configurable via `RECEIPTS_RERUN_TIMEOUT`).
+5. Compares the **real exit code** of the re-run against the claimed VERDICT:
+   - `VERDICT: yes` requires real exit `0`.
+   - `VERDICT: no` requires real exit `≠ 0`.
+   - Any mismatch → block, with the real output and exit code printed back to the agent.
+6. If the COMMAND is non-rerunnable (metachars or off the safe-list), the hook falls back to **form-only verification** with a stderr note. The agent's claim still passes form check; the truth wasn't independently verified.
+
+### Why the safe-list, not "run anything"
+The COMMAND line is agent-authored text. Re-executing arbitrary shell from agent output is a security regression — even with whitelisting, the discipline is "if you want truth-checking, write a re-runnable proof-of-work command that has no side effects." The safe-list covers the verification commands a serious developer is already running anyway.
+
+### What the hook catches now
+- **Claims without receipts** ("all tests pass" with no Evidence Template) → block (form check)
+- **Fabricated receipts** (claimed VERDICT: yes but the real command exits non-zero) → block (truth check)
+- **Wrong-direction VERDICT** (claimed VERDICT: no but the real command passes) → block (truth check)
+- **Non-rerunnable claims** (deploy commands, `gh repo create`, etc.) → form-only, with a stderr note that the truth wasn't checked. Discipline reminder printed: write a re-runnable proof-of-work command instead of the action itself.
+
+### Env knobs
+- `RECEIPTS_RERUN=0` — disable Tier 2 entirely, fall back to form-only.
+- `RECEIPTS_RERUN_TIMEOUT=120` — extend the re-run timeout (default 60s).
+
+### Limitations (be honest about what this doesn't catch)
+- **Side-effect commands** (deploy scripts, API calls, anything with `;`, `&&`, redirects) fall back to form-only. The discipline of writing a re-runnable proof-of-work command is the user's responsibility.
+- **Non-determinism**: a flaky test that passes once and fails on re-run will show as a mismatch. Acceptable false-alarm — flakiness is itself a signal.
+- **Trust in the test code itself**: if the agent wrote a fake test that always returns 0, the hook will dutifully re-run it and accept the VERDICT. Verifying that the test is meaningful is out of scope; pair this skill with peer review or `codex review --uncommitted` for that.
 
 ---
 
 ## Verify This Skill Works
 
-A skill called *Receipts Or It Didn't Happen* should ship with receipts. The skill ships with a self-test that exercises the hook against 7 transcript scenarios:
+A skill called *Receipts Or It Didn't Happen* should ship with receipts. The skill ships with a self-test that exercises the hook against 14 transcript scenarios — 5 covering the Tier 1 form check, 9 covering the Tier 2 re-run + verdict comparison:
 
 ```bash
 bash scripts/test-check-receipts.sh
@@ -220,32 +242,48 @@ bash scripts/test-check-receipts.sh
 Expected output:
 
 ```
-Receipt:
-CLAIM:   check-receipts.sh blocks unverified completion claims and allows everything else
-COMMAND: bash scripts/test-check-receipts.sh
-OUTPUT:  7/7 scenarios passed
-  PASS  claim without receipts is blocked (exit 2)
-  PASS  claim with full evidence template is allowed (exit 0)
-  PASS  neutral exploration with no claim language is allowed
-  PASS  stop_hook_active loop guard short-circuits to allow
-  PASS  honest failing receipt (verdict=no) is allowed
-  PASS  incomplete receipt missing VERDICT line is blocked
-  PASS  transcript with no assistant message is allowed (no claim)
-VERDICT: yes
+Test report:
+  14/14 scenarios passed
+
+  PASS  1. claim without receipts is blocked (exit 2)
+  PASS  2. neutral exploration with no claim language is allowed
+  PASS  3. stop_hook_active loop guard short-circuits to allow
+  PASS  4. incomplete receipt missing VERDICT line is blocked
+  PASS  5. transcript with no assistant message is allowed
+  PASS  6. safe-list cmd that really passes + VERDICT yes → allow
+  PASS  7. safe-list cmd that really fails + VERDICT yes → BLOCK (mismatch)
+  PASS  8. safe-list cmd that fails + honest VERDICT no → allow
+  PASS  9. safe-list cmd that passes + dishonest VERDICT no → BLOCK (mismatch)
+  PASS  10. command with shell metacharacter falls back to form-only allow
+  PASS  11. non-safe-list command (gh repo create) falls back to form-only allow
+  PASS  12. RECEIPTS_RERUN=0 disables Tier 2 (form-only) — even with bogus VERDICT
+  PASS  13. ls (read-only safe-list) on existing dir + VERDICT yes → allow
+  PASS  14. git status (safe-list) with VERDICT yes in any git repo → allow
+
+Result: all scenarios passed (Tier 1 form check + Tier 2 re-run + verdict comparison)
 ```
 
-The script exits 0 on full pass, 1 on any regression. CI runs it on every PR (see `.github/workflows/test.yml` at the repo root). If you change the hook's claim words or receipt pattern, run the test, watch a scenario break, then update the test alongside the hook so they evolve together.
+The script exits 0 on full pass, 1 on any regression. CI runs it on every PR (see `.github/workflows/test.yml` at the repo root). If you change the hook's claim words, safe-list, or receipt pattern, run the test, watch a scenario break, then update the test alongside the hook so they evolve together.
 
 **Test scenarios covered:**
 
-| # | Scenario | Expected |
-|---|----------|----------|
-| 1 | Assistant says "tests pass / bug fixed" with no Evidence Template | Block (exit 2) |
-| 2 | Assistant claim + full CLAIM/COMMAND/OUTPUT/VERDICT block | Allow (exit 0) |
-| 3 | Pure exploration / explanation, no claim language | Allow |
-| 4 | `stop_hook_active=true` loop guard | Allow (always, to avoid recursion) |
-| 5 | Honest failing receipt: `VERDICT: no — fix incomplete` | Allow (the receipt itself is the contract, not a "yes" verdict) |
-| 6 | Receipt missing the `VERDICT:` line | Block (incomplete receipt = no receipt) |
-| 7 | Empty transcript or no assistant message | Allow (nothing to gate) |
+| # | Scenario | Tier | Expected |
+|---|----------|------|----------|
+| 1 | Claim word with no Evidence Template | 1 (form) | Block |
+| 2 | Pure exploration / no claim language | 1 (form) | Allow |
+| 3 | `stop_hook_active=true` loop guard | 1 (form) | Allow (recursion guard) |
+| 4 | Receipt missing VERDICT line | 1 (form) | Block |
+| 5 | Empty transcript / no assistant message | 1 (form) | Allow |
+| 6 | Safe-list cmd really passes + VERDICT yes | 2 (truth) | Allow |
+| 7 | Safe-list cmd really fails + VERDICT yes (fabrication) | 2 (truth) | **Block** |
+| 8 | Safe-list cmd fails + honest VERDICT no | 2 (truth) | Allow |
+| 9 | Safe-list cmd passes + dishonest VERDICT no | 2 (truth) | **Block** |
+| 10 | Command with shell metachars (`pytest && rm`) | 2 (truth) | Form-only allow |
+| 11 | Non-safe-list command (`gh repo create`) | 2 (truth) | Form-only allow |
+| 12 | `RECEIPTS_RERUN=0` env disables Tier 2 | 2 (truth) | Form-only allow |
+| 13 | `ls` (read-only safe-list) + VERDICT yes | 2 (truth) | Allow |
+| 14 | `git status` (safe-list) + VERDICT yes | 2 (truth) | Allow |
 
-If you add a new claim word, scenario, or receipt format, add a corresponding `run_case` line to `scripts/test-check-receipts.sh` so the regression is caught the next time someone forks and runs the suite.
+The Tier 2 fabrication-catch cases (#7 and #9) are the headline behavior. Without them, this is just a form-checker. With them, the hook actually gates on whether the claimed VERDICT matches reality.
+
+If you add a new claim word, safe-list entry, scenario, or receipt format, add a corresponding `run_case` line to `scripts/test-check-receipts.sh` so the regression is caught the next time someone forks and runs the suite.

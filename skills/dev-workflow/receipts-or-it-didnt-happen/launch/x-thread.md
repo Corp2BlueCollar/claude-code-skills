@@ -37,16 +37,16 @@ Before any agent claims "tests pass / bug fixed / applied," it has to paste:
 
 ---
 
-Repo also includes a Stop-hook script.
+The Stop-hook does form check + truth check.
 
-If the agent tries to end a turn with claim language and no Evidence Template, the harness blocks the stop and re-prompts the agent to verify.
+For safe-list commands (pytest, npm test, eslint, git status, etc.) it RE-RUNS them in a fresh subshell and compares the real exit code to the claimed VERDICT.
 
-macOS bash 3.2 portable, smoke-tested against 7 transcript scenarios.
+Fabricate a passing receipt → real run fails → hook blocks the stop.
 
 ---
 
-Bigger pattern: AI demos optimize for the moment of impressive output. AI operations need the agent honest when things break.
+14-scenario test suite ships with it. Cases 7 and 9 are the fabrication-catch tests.
 
-Open-sourcing one Claude Code skill per week from my library. This is week 1.
+AI demos optimize for impressive moments. AI operations need the agent honest when things break.
 
-Repo: https://github.com/Corp2BlueCollar/claude-code-skills
+One skill open-sourced per week. Week 1: github.com/Corp2BlueCollar/claude-code-skills
