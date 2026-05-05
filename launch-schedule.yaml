@@ -1,0 +1,19 @@
+# Skill drip launch schedule
+#
+# Each entry is one skill that gets posted across LinkedIn, X, and Facebook on
+# the Tuesday on/after `week_starts`. The OpenClaw cron job (skill-drip-weekly)
+# reads this file every Tuesday 09:00 ET and ships any drip whose week_starts
+# date is on/before today AND posted is false.
+#
+# To delay or pause a drip: don't add it to this list (or set posted: true).
+# To force a re-post: change posted to false.
+# To halt all drips globally: `touch ~/shared-brain/social-pause`.
+
+drips:
+  - skill: skills/dev-workflow/receipts-or-it-didnt-happen
+    week_starts: 2026-05-05
+    posted: false
+
+  - skill: skills/content/humanizer
+    week_starts: 2026-05-12
+    posted: false
