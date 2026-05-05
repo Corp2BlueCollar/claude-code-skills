@@ -12,7 +12,7 @@
 drips:
   - skill: skills/dev-workflow/receipts-or-it-didnt-happen
     week_starts: 2026-05-05
-    posted: false
+    posted: true
 
   - skill: skills/content/humanizer
     week_starts: 2026-05-12
