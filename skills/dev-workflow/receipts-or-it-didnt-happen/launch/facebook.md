@@ -10,4 +10,4 @@ I'm starting to open-source the toolkit I've been building over the last year. O
 
 If you know anyone hiring for AI implementation, customer success, deployment, or change management at a startup, I'm wide open and would love an intro. Comments, shares, or DMs all appreciated. 🙏
 
-🔗 https://github.com/Corp2BlueCollar/claude-skills
+🔗 https://github.com/Corp2BlueCollar/claude-code-skills

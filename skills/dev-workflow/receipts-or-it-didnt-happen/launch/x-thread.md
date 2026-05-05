@@ -12,7 +12,7 @@ Built a Claude Code skill that makes "did it actually work?" a hard requirement.
 
 Free, MIT 👇
 
-github.com/Corp2BlueCollar/claude-skills
+github.com/Corp2BlueCollar/claude-code-skills
 
 1/
 
@@ -49,4 +49,4 @@ Bigger pattern: AI demos optimize for the moment of impressive output. AI operat
 
 Open-sourcing one Claude Code skill per week from my library. This is week 1.
 
-Repo: https://github.com/Corp2BlueCollar/claude-skills
+Repo: https://github.com/Corp2BlueCollar/claude-code-skills

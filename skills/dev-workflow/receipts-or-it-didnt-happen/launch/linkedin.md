@@ -18,6 +18,6 @@ No receipts, no claim. There's a Stop-hook script in the repo that enforces it a
 This is the difference between AI demos and AI operations. Demos optimize for the moment of impressive-looking output. Operations need the agent to be honest when something is broken.
 
 First skill in my open-source Claude Code library. Free, MIT, copy what you want:
-https://github.com/Corp2BlueCollar/claude-skills/tree/main/skills/dev-workflow/receipts-or-it-didnt-happen
+https://github.com/Corp2BlueCollar/claude-code-skills/tree/main/skills/dev-workflow/receipts-or-it-didnt-happen
 
 If you're hiring for AI implementation, customer success, deployment, or change-management roles at a Series A–D startup, this is the kind of guardrail I think about constantly. DMs open.
