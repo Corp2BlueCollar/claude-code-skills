@@ -1,0 +1,49 @@
+name: Skill self-tests
+
+# Each skill that ships executable code (hooks, scripts) should ship a self-test
+# under <skill>/scripts/test-*.sh. This workflow finds and runs every test on
+# push and PR, so the badge on the README reflects whether the skills actually
+# work — not just whether they exist.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  receipts-skill:
+    name: receipts-or-it-didnt-happen
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify check-receipts.sh
+        run: |
+          bash skills/dev-workflow/receipts-or-it-didnt-happen/scripts/test-check-receipts.sh
+
+  all-skill-tests:
+    name: all skill self-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find and run every test-*.sh
+        run: |
+          set -euo pipefail
+          mapfile -t tests < <(find skills -type f -name 'test-*.sh' | sort)
+          if [ "${#tests[@]}" -eq 0 ]; then
+            echo "No skill self-tests found. Add one under <skill>/scripts/test-*.sh."
+            exit 0
+          fi
+          fail=0
+          for t in "${tests[@]}"; do
+            echo "::group::$t"
+            if bash "$t"; then
+              echo "PASS $t"
+            else
+              echo "FAIL $t"
+              fail=1
+            fi
+            echo "::endgroup::"
+          done
+          exit $fail

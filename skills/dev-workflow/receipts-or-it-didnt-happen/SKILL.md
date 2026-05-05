@@ -206,3 +206,46 @@ A reference implementation lives at `scripts/check-receipts.sh` in this skill fo
 - Questions, plans, exploratory turns
 
 Customize the claim-word list and receipt regex inside the script for your stack.
+
+---
+
+## Verify This Skill Works
+
+A skill called *Receipts Or It Didn't Happen* should ship with receipts. The skill ships with a self-test that exercises the hook against 7 transcript scenarios:
+
+```bash
+bash scripts/test-check-receipts.sh
+```
+
+Expected output:
+
+```
+Receipt:
+CLAIM:   check-receipts.sh blocks unverified completion claims and allows everything else
+COMMAND: bash scripts/test-check-receipts.sh
+OUTPUT:  7/7 scenarios passed
+  PASS  claim without receipts is blocked (exit 2)
+  PASS  claim with full evidence template is allowed (exit 0)
+  PASS  neutral exploration with no claim language is allowed
+  PASS  stop_hook_active loop guard short-circuits to allow
+  PASS  honest failing receipt (verdict=no) is allowed
+  PASS  incomplete receipt missing VERDICT line is blocked
+  PASS  transcript with no assistant message is allowed (no claim)
+VERDICT: yes
+```
+
+The script exits 0 on full pass, 1 on any regression. CI runs it on every PR (see `.github/workflows/test.yml` at the repo root). If you change the hook's claim words or receipt pattern, run the test, watch a scenario break, then update the test alongside the hook so they evolve together.
+
+**Test scenarios covered:**
+
+| # | Scenario | Expected |
+|---|----------|----------|
+| 1 | Assistant says "tests pass / bug fixed" with no Evidence Template | Block (exit 2) |
+| 2 | Assistant claim + full CLAIM/COMMAND/OUTPUT/VERDICT block | Allow (exit 0) |
+| 3 | Pure exploration / explanation, no claim language | Allow |
+| 4 | `stop_hook_active=true` loop guard | Allow (always, to avoid recursion) |
+| 5 | Honest failing receipt: `VERDICT: no — fix incomplete` | Allow (the receipt itself is the contract, not a "yes" verdict) |
+| 6 | Receipt missing the `VERDICT:` line | Block (incomplete receipt = no receipt) |
+| 7 | Empty transcript or no assistant message | Allow (nothing to gate) |
+
+If you add a new claim word, scenario, or receipt format, add a corresponding `run_case` line to `scripts/test-check-receipts.sh` so the regression is caught the next time someone forks and runs the suite.
