@@ -1,25 +1,58 @@
 ---
-name: verification-before-completion
-description: Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirming output before making any success claims; evidence before assertions always
+name: receipts-or-it-didnt-happen
+description: Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires pasting an Evidence Template (CLAIM / COMMAND / OUTPUT / VERDICT) with fresh command output in the same message before any success claim. No receipts, no claim. Evidence before assertions always.
 ---
 
-# Verification Before Completion
+# Receipts Or It Didn't Happen
+
+> Invoke as: `receipts-or-it-didnt-happen`
 
 ## Overview
 
 Claiming work is complete without verification is dishonesty, not efficiency.
 
-**Core principle:** Evidence before claims, always.
+**Core principle:** Receipts or it didn't happen. Evidence before claims, always.
 
 **Violating the letter of this rule is violating the spirit of this rule.**
 
 ## The Iron Law
 
 ```
-NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
+NO COMPLETION CLAIMS WITHOUT FRESH RECEIPTS IN THE SAME MESSAGE
 ```
 
-If you haven't run the verification command in this message, you cannot claim it passes.
+If you haven't run the verification command in this message, you cannot claim it passes. No receipts, no claim.
+
+## The Evidence Template
+
+Every completion claim must take this form:
+
+```
+CLAIM:   [what you're claiming — "tests pass", "bug fixed", "build green"]
+COMMAND: [exact command run, fresh, this message]
+OUTPUT:  [paste actual stdout / exit code / failure count]
+VERDICT: [does the output confirm the claim? yes / no]
+```
+
+Anything else is a guess. Paste the template, fill it in, then make the claim.
+
+**Example — passing:**
+```
+CLAIM:   pytest suite passes after the auth fix
+COMMAND: uv run pytest tests/auth/ -x
+OUTPUT:  ============= 34 passed in 2.18s =============
+VERDICT: yes
+```
+
+**Example — failing (still required, just honest):**
+```
+CLAIM:   pytest suite passes after the auth fix
+COMMAND: uv run pytest tests/auth/ -x
+OUTPUT:  FAILED tests/auth/test_token.py::test_refresh — AssertionError
+VERDICT: no — refresh-token path still broken, fix incomplete
+```
+
+The template is also the receipt. Save it, paste it in PR descriptions, attach it to handoffs.
 
 ## The Gate Function
 
@@ -136,4 +169,40 @@ From 24 failure memories:
 
 Run the command. Read the output. THEN claim the result.
 
-This is non-negotiable.
+This is non-negotiable. **Receipts or it didn't happen.**
+
+---
+
+## Hook Configuration (optional but recommended)
+
+The skill is advisory by default. To make it *enforced* at the harness level, wire it to a Claude Code `Stop` hook that scans the assistant's final message for completion claims and rejects ones missing fresh receipts.
+
+Add to `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "Stop": [{
+      "matcher": "",
+      "hooks": [{
+        "type": "command",
+        "command": "$CLAUDE_PROJECT_DIR/scripts/check-receipts.sh"
+      }]
+    }]
+  }
+}
+```
+
+A reference implementation lives at `scripts/check-receipts.sh` in this skill folder. It scans the most recent assistant message transcript for claim words (*passes, complete, fixed, working, done, ready, shipped*) and confirms an Evidence Template (CLAIM/COMMAND/OUTPUT/VERDICT) appears in the same message. If a claim word appears without a matching receipt, the hook exits non-zero and the harness re-prompts the agent to verify before stopping.
+
+**What it catches:**
+- "All tests pass" with no `pytest` / `npm test` / `cargo test` output above
+- "Bug fixed" with no diff and no reproduction run
+- "Build complete" with no exit-code line
+
+**What it lets through:**
+- Claims accompanied by an Evidence Template block
+- Pure status updates without success language
+- Questions, plans, exploratory turns
+
+Customize the claim-word list and receipt regex inside the script for your stack.

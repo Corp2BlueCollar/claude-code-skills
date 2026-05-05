@@ -94,7 +94,7 @@ My background combines enterprise delivery, hands-on AI building, and operating 
 - Grew PoolCleaningDude to $16k MRR month 1 on $2k ad spend.
 - Built this Claude Code skills library to make AI-assisted work more reliable, reviewable, and useful outside of toy demos.
 
-I am most interested in senior customer-facing AI roles at Series A through Series D startups:
+I am most interested in customer-facing AI roles at Series A through Series D startups:
 
 - Customer Success Manager or Customer Success Engineer
 - Customer Outcomes Manager

@@ -52,7 +52,7 @@ This is the public index of included skills. Each entry points to a reusable `SK
 - [systematic-debugging](skills/dev-workflow/systematic-debugging/SKILL.md) - Use when encountering any bug, test failure, or unexpected behavior, before proposing fixes
 - [test-driven-development](skills/dev-workflow/test-driven-development/SKILL.md) - Use when implementing any feature or bugfix, before writing implementation code
 - [using-git-worktrees](skills/dev-workflow/using-git-worktrees/SKILL.md) - Use when starting feature work that needs isolation from current workspace or before executing implementation plans - creates isolated git worktree.
-- [verification-before-completion](skills/dev-workflow/verification-before-completion/SKILL.md) - Use when about to claim work is complete, fixed, or passing, before committing or creating PRs - requires running verification commands and confirm.
+- [receipts-or-it-didnt-happen](skills/dev-workflow/receipts-or-it-didnt-happen/SKILL.md) - Use when about to claim work is complete, fixed, or passing - requires pasting an Evidence Template (CLAIM / COMMAND / OUTPUT / VERDICT) with fresh command output in the same message. No receipts, no claim.
 - [webapp-testing](skills/dev-workflow/webapp-testing/SKILL.md) - Toolkit for interacting with and testing local web applications using Playwright. Supports verifying frontend functionality, debugging UI behavior.
 - [writing-plans](skills/dev-workflow/writing-plans/SKILL.md) - Use when you have a spec or requirements for a multi-step task, before touching code
 
